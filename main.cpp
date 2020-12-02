@@ -169,7 +169,7 @@ void forward_sendpkt(pcap_t *handle, Mac mac_addr, struct eth_ip_tcp_hdr *packet
 	sendpkt->ip_.len = htons(sizeof(struct iphdr) + sizeof(struct tcphdr));
 	sendpkt->ip_.checksum = 0;
 	sendpkt->ip_.checksum = getchecksum(((u_char *)&(sendpkt->ip_)), sizeof(struct iphdr));
-
+	//sendpkt->ip_.checksum = packet->ip_.checksum;
 	sendpkt->tcp_.src_port = packet->tcp_.src_port;
 	sendpkt->tcp_.dst_port = packet->tcp_.dst_port;
 	sendpkt->tcp_.seq = htonl(ntohl(packet->tcp_.seq) + datalen);
@@ -239,7 +239,7 @@ uint16_t getchecksum(u_char *data, int len)
 	}
 	uint16_t res = tmp & 0xFFFF;
 	res += (tmp >> 16);
-	return ~res;
+	return htons(~res);
 }
 uint16_t gettcpsum(struct eth_ip_tcp_hdr *packet)
 {
@@ -250,29 +250,30 @@ uint16_t gettcpsum(struct eth_ip_tcp_hdr *packet)
 	memset(data, 0, dataLen);
 	memcpy(data, ((u_char *)&(packet->ip_.src_ip)), 8);
 	*((u_int8_t *)(data + 9)) = 6; // IPPROTO_TCP
-	*((u_int16_t *)(data + 10)) = dataLen - 12;
+	*((u_int16_t *)(data + 10)) = htons(dataLen - 12);
 	memcpy(data + 12, (u_char *)(&(packet->tcp_)), sizeof(struct tcphdr));
 
 	u_int16_t sum = getchecksum(data, dataLen);
+
 	free(data);
-	return ntohs(sum);
+	return sum;
 }
 uint16_t gettcpsum_data(struct eth_ip_tcp_hdr_data *packet)
 {
 	int dataLen = 12 + sizeof(struct tcphdr) + 10;
 
-	u_char *data = (u_char *)malloc(12);
+	u_char *data = (u_char *)malloc(dataLen);
 	memset(data, 0, dataLen);
 	memcpy(data, ((u_char *)&(packet->ip_.src_ip)), 8);
 	*((u_int8_t *)(data + 9)) = 6; // IPPROTO_TCP
-	*((u_int16_t *)(data + 10)) = dataLen - 12;
+	*((u_int16_t *)(data + 10)) = htons(dataLen - 12);
 
 	memcpy(data + 12, (u_char *)(&(packet->tcp_)), sizeof(struct tcphdr));
 	memcpy(data + 12 + sizeof(struct tcphdr), (u_char *)packet->data, 10);
 
 	u_int16_t sum = getchecksum(data, dataLen);
 	free(data);
-	return ntohs(sum);
+	return sum;
 }
 int pattern_find(uint8_t *data, int size)
 {
